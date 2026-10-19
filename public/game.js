@@ -18,6 +18,12 @@ document.getElementById('copyBtn').onclick = () => {
     () => alert('Copy this link: ' + link));
 };
 
+/* ---------- sound ---------- */
+const sfxBtn = $('soundBtn');
+const paintSfx = () => { sfxBtn.textContent = Sfx.enabled ? '🔊' : '🔇'; };
+sfxBtn.onclick = () => { const on = Sfx.toggle(); paintSfx(); if (on) Sfx.play('click'); };
+paintSfx();
+
 /* ---------- lobby / players ---------- */
 socket.on('connect', () => socket.emit('joinRoom', { code: CODE, name: MY_NAME }));
 
@@ -45,8 +51,8 @@ socket.on('players', (players) => {
 
 socket.on('hostChanged', ({ name }) => feedSys(`👑 ${esc(name)} is now the host.`));
 
-$('startBtn').onclick = () => { $('lobbyErr').textContent = ''; socket.emit('startGame'); };
-$('againBtn').onclick = () => socket.emit('playAgain');
+$('startBtn').onclick = () => { $('lobbyErr').textContent = ''; Sfx.play('click'); socket.emit('startGame'); };
+$('againBtn').onclick = () => { Sfx.play('click'); socket.emit('playAgain'); };
 socket.on('backToLobby', () => {
   $('overOv').classList.add('hidden'); $('roundOv').classList.add('hidden');
   $('game').classList.add('hidden'); $('lobby').classList.remove('hidden');
@@ -57,12 +63,14 @@ socket.on('backToLobby', () => {
 socket.on('gameStarted', ({ totalRounds }) => {
   $('lobby').classList.add('hidden'); $('game').classList.remove('hidden');
   feedSys(`Game on! ${totalRounds} rounds — everyone draws once.`);
+  Sfx.play('gameStart');
 });
 
 socket.on('roundStarting', ({ round, totalRounds, drawerName }) => {
   $('roundInfo').textContent = `Round ${round}/${totalRounds}`;
   $('roundOv').classList.add('hidden'); // dismiss previous round's scoreboard
   feedSys(`🎨 ${esc(drawerName)} is picking a word…`);
+  Sfx.play('roundStart');
 });
 
 socket.on('wordChoices', ({ choices }) => {
@@ -75,6 +83,7 @@ socket.on('wordChoices', ({ choices }) => {
     box.appendChild(b);
   });
   $('pickerOv').classList.remove('hidden');
+  Sfx.play('yourTurn');
 });
 
 socket.on('yourWord', ({ word, difficulty }) => {
@@ -107,6 +116,7 @@ socket.on('roundEnded', ({ word, scores, reason, drawerName }) => {
     `<li class="${i === 0 ? 'first' : ''}"><span>${i + 1}. ${esc(p.name)}</span><span>${p.score} pts</span></li>`).join('');
   $('roundOv').classList.remove('hidden');
   $('guessInput').value = '';
+  Sfx.play(reason === 'timeUp' ? 'timeUp' : 'roundEnd');
 });
 
 socket.on('gameOver', ({ standings }) => {
@@ -116,6 +126,7 @@ socket.on('gameOver', ({ standings }) => {
   $('finalScores').innerHTML = standings.map((p, i) =>
     `<li class="${i === 0 ? 'first' : ''}"><span>${medals[i] || (i + 1) + '.'} ${esc(p.name)}${p.id === myId ? ' (you)' : ''}</span><span>${p.score} pts</span></li>`).join('');
   $('overOv').classList.remove('hidden');
+  Sfx.play('fanfare');
 });
 
 /* ---------- guesses / feed ---------- */
@@ -128,6 +139,7 @@ socket.on('correctGuess', ({ name, points }) => {
   const li = document.createElement('li');
   li.className = 'sys'; li.textContent = `✔ ${name} guessed it! +${points}`;
   pushFeed(li);
+  Sfx.play(name === MY_NAME ? 'correctSelf' : 'correct');
 });
 function feedSys(html) {
   const li = document.createElement('li');
@@ -217,11 +229,15 @@ function replayStroke(s) {
 }
 
 /* ---------- timer ---------- */
+let lastTickSec = -1;
 function startTimer() {
   stopTimer();
+  lastTickSec = -1;
   const tick = () => {
     const left = Math.max(0, endsAt - Date.now());
     $('timerFill').style.width = (100 * left / roundTimeMs) + '%';
+    const s = Math.ceil(left / 1000);
+    if (left > 0 && s <= 10 && s !== lastTickSec) { lastTickSec = s; Sfx.play('tick'); }
     if (left > 0) timerRAF = requestAnimationFrame(tick);
   };
   tick();
