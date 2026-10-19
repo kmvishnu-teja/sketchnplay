@@ -2,95 +2,64 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Sketch Sprint — room</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch Sprint — draw & guess party game</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
-  <div class="topbar">
-    <h1 class="logo" style="font-size:1.6rem; margin:0;"><span class="sk">Sketch</span> <span class="sp">Sprint</span></h1>
-    <div class="roomcode" id="roomCode">····</div>
-    <button class="btn ghost" id="copyBtn" style="padding:8px 14px; font-size:.9rem;">Copy invite link</button>
-    <div class="roundinfo" id="roundInfo"></div>
-  </div>
+  <h1 class="logo"><span class="sk">Sketch</span> <span class="sp">Sprint</span></h1>
+  <p class="tag">A real-time draw &amp; guess party game for 2–8 players. Draw fast, guess faster.</p>
 
-  <!-- LOBBY -->
-  <div id="lobby" class="card">
-    <h2 style="margin-top:0">Lobby — waiting for players <span class="count" id="lobbyCount"></span></h2>
-    <p class="hint" style="margin-top:0">Share the room code or invite link. Everyone joins from their own device.</p>
-    <ul id="lobbyList" class="standings"></ul>
-    <button class="btn big" id="startBtn">Start game</button>
-    <div class="err" id="lobbyErr"></div>
-  </div>
-
-  <!-- GAME -->
-  <div id="game" class="hidden">
-    <div class="timerbar"><div id="timerFill"></div></div>
-    <div class="board">
-      <div class="canvasbox">
-        <div class="wordhint" id="wordHint"></div>
-        <div class="yourword hidden" id="yourWord"></div>
-        <canvas id="board" width="800" height="600"></canvas>
-        <div class="toolbar hidden" id="toolbar">
-          <div id="swatches" style="display:flex; gap:8px;"></div>
-          <select class="brush" id="brushSize">
-            <option value="4">Thin</option>
-            <option value="8" selected>Medium</option>
-            <option value="14">Thick</option>
-          </select>
-          <button class="btn ghost" id="clearBtn" style="padding:8px 14px; font-size:.9rem;">Clear</button>
-        </div>
-      </div>
-      <div class="side">
-        <div class="panel">
-          <h3>Players</h3>
-          <ul id="playerList"></ul>
-        </div>
-        <div class="panel" style="flex:1; display:flex; flex-direction:column;">
-          <h3>Guesses</h3>
-          <ul id="feed" style="flex:1;"></ul>
-          <div class="guessrow" id="guessRow" style="margin-top:8px;">
-            <input type="text" id="guessInput" maxlength="60" placeholder="Type your guess…" autocomplete="off">
-            <button class="btn" id="guessBtn">Guess</button>
-          </div>
-        </div>
-      </div>
+  <div class="row">
+    <div class="col card">
+      <h2 style="margin-top:0">Create a room</h2>
+      <label for="nameCreate">Your nickname</label>
+      <input type="text" id="nameCreate" maxlength="16" placeholder="e.g. DoodleDan" autocomplete="off">
+      <div style="margin-top:16px"><button class="btn big" id="createBtn">Create room</button></div>
+    </div>
+    <div class="col card">
+      <h2 style="margin-top:0">Join a room</h2>
+      <label for="nameJoin">Your nickname</label>
+      <input type="text" id="nameJoin" maxlength="16" placeholder="e.g. GuessGuru" autocomplete="off">
+      <label for="codeJoin">Room code</label>
+      <input type="text" id="codeJoin" maxlength="4" placeholder="ABCD" autocomplete="off"
+             style="text-transform:uppercase; letter-spacing:4px; font-weight:800;">
+      <div style="margin-top:16px"><button class="btn big ghost" id="joinBtn">Join room</button></div>
     </div>
   </div>
+  <div class="err" id="err"></div>
+  <p class="hint">How it works: everyone joins with a room code. Each round one player draws a secret word while the others guess in real time. Faster guesses earn more points — and the drawer scores for every correct guess. Everyone draws once, highest score wins.</p>
 </div>
-
-<!-- word picker -->
-<div class="overlay hidden" id="pickerOv">
-  <div class="sheet">
-    <h2>You're drawing! Pick a word</h2>
-    <p class="hint">Harder words earn everyone more points.</p>
-    <div class="wordbtns" id="wordBtns"></div>
-  </div>
-</div>
-
-<!-- round end -->
-<div class="overlay hidden" id="roundOv">
-  <div class="sheet">
-    <h2 id="roundTitle">Round over</h2>
-    <div>The word was</div>
-    <div class="bigword" id="roundWord"></div>
-    <ul class="standings" id="roundScores"></ul>
-    <p class="hint">Next round starting…</p>
-  </div>
-</div>
-
-<!-- game over -->
-<div class="overlay hidden" id="overOv">
-  <div class="sheet">
-    <h2>🏆 Game over!</h2>
-    <ul class="standings" id="finalScores"></ul>
-    <button class="btn big hidden" id="againBtn">Play again</button>
-    <p class="hint" id="againHint">Waiting for host…</p>
-  </div>
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="game.js"></script>
+<script>
+const err = document.getElementById('err');
+function showErr(m) { err.textContent = m; }
+function go(code, name) {
+  sessionStorage.setItem('sketchName', name.trim());
+  location.href = 'game.html?code=' + encodeURIComponent(code.trim().toUpperCase());
+}
+const nameCreate = document.getElementById('nameCreate');
+const nameJoin = document.getElementById('nameJoin');
+const codeJoin = document.getElementById('codeJoin');
+// remember nickname between visits; prefill code from invite links (?code=XXXX)
+nameCreate.value = nameJoin.value = sessionStorage.getItem('sketchName') || '';
+const q = new URLSearchParams(location.search).get('code');
+if (q) codeJoin.value = q.toUpperCase();
+document.getElementById('createBtn').onclick = async () => {
+  if (!nameCreate.value.trim()) return showErr('Enter a nickname first.');
+  try {
+    const r = await fetch('/api/rooms', { method: 'POST' });
+    const { code } = await r.json();
+    go(code, nameCreate.value);
+  } catch { showErr('Could not reach the server. Is it running?'); }
+};
+document.getElementById('joinBtn').onclick = () => {
+  if (!nameJoin.value.trim()) return showErr('Enter a nickname first.');
+  if (codeJoin.value.trim().length !== 4) return showErr('Room codes are 4 letters.');
+  go(codeJoin.value, nameJoin.value);
+};
+[nameCreate, nameJoin, codeJoin].forEach(el =>
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') (el === nameCreate ? document.getElementById('createBtn') : document.getElementById('joinBtn')).click(); }));
+</script>
 </body>
 </html>
